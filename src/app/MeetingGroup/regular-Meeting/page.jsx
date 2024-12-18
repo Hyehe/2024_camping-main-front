@@ -52,15 +52,15 @@ import '../../globals.css';
 //     },
 //   },
 //   {
-//     id: 3,
+//     meeting_idx: 3,
 //     region: '인천',
-//     title: '유앤캠',
-//     date: '2024.11.30',
-//     location: '마포구',
-//     members: '5/7',
-//     image: '/images/bg-dark.jpg',
+//     name: '유앤캠',
+//     created_at: '2024.11.30',
+//     subregion: '마포구',
+//     personnel: '5/7',
+//     profile_image: '/images/bg-dark.jpg',
 //     tags: ['#오토캠핑', '#야영', '#카라반'],
-//     liked: false,
+//     favorites_idx: false,
 //   },
 //   {
 //     id: 4,
@@ -118,11 +118,12 @@ export default function RegularMeetingPage() {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const [meetings, setMeetings] = useState([]);
+  
 
   useEffect(() => {
     const fetchMeetings = async () => {
       try {
-        const response = await fetch("/api/regular-meetings");
+        const response = await fetch(`${process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL}/regular-meetings`);
         if (response.ok) {
           
           const data = await response.json();
