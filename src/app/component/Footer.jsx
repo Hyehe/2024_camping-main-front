@@ -4,7 +4,7 @@ import ForestIcon from '@mui/icons-material/Forest';
 
 const Footer = () => {
   return (
-    <footer style={{ backgroundColor: '#2e2f31', padding: '15px 0', textAlign: 'center' }}>
+    <footer style={{ backgroundColor: '#2e2f31', padding: '15px 0', textAlign: 'center'}}>
       {/* 상호명과 아이콘 */}
       <Box
         sx={{

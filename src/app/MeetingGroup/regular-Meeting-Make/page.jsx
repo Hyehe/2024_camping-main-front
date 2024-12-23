@@ -35,7 +35,7 @@ export default function CreateMeetingPage() {
   const [selectedSubRegion, setSelectedSubRegion] = useState('');
   const [otherRegion, setOtherRegion] = useState('');
   const [description, setDescription] = useState('');
-  const [capacity, setCapacity] = useState('');
+  const [subregion, setSubregion] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
 
@@ -67,7 +67,7 @@ export default function CreateMeetingPage() {
     if (selectedRegion !== '기타' && !selectedSubRegion) newErrors.subRegion = '필수 입력입니다.';
     if (selectedRegion === '기타' && !otherRegion) newErrors.otherRegion = '필수 입력입니다.';
     if (!description.trim()) newErrors.description = '필수 입력입니다.';
-    if (!capacity || capacity <= 0) newErrors.capacity = '1 이상의 숫자를 입력해주세요.';
+    if (!subregion || subregion <= 0) newErrors.subregion = '1 이상의 숫자를 입력해주세요.';
 
     setErrors(newErrors);
     setIsSubmitDisabled(Object.keys(newErrors).length > 0);
@@ -76,40 +76,40 @@ export default function CreateMeetingPage() {
   // 유효성 검사 연결
   useEffect(() => {
     validateForm();
-  }, [title, selectedImage, selectedHashtags, selectedRegion, selectedSubRegion, otherRegion, description, capacity]);
+  }, [title, selectedImage, selectedHashtags, selectedRegion, selectedSubRegion, otherRegion, description, subregion]);
 
   // 작성 버튼 클릭 핸들러
   const handleSubmit = async () => {
     validateForm();
-  
+
     if (!isSubmitDisabled) {
       const newMeeting = {
         name: title,
         hashtags: selectedHashtags.join(", "), // 해시태그를 문자열로 전달
         description,
         region: selectedRegion === '기타' ? otherRegion : selectedRegion,
-        subRegion: selectedSubRegion,
-        capacity: Number(capacity), // 숫자 형식으로 변환
+        subregion: Number(subregion), // 숫자 형식으로 변환
+
       };
-  
+
       try {
         const formData = new FormData();
-        formData.append("name", newMeeting.name);
-        formData.append("description", newMeeting.description);
-        formData.append("region", newMeeting.region);
-        formData.append("subRegion", newMeeting.subRegion || '');
-        formData.append("hashtags", newMeeting.hashtags);
-        formData.append("capacity", newMeeting.capacity);
+        formData.append("name", title);
+        formData.append("description", description);
+        formData.append("region", selectedRegion);
+        formData.append("subregion", selectedSubRegion || otherRegion);
+        formData.append("personnel", Number(subregion));
+        formData.append("hashtags", selectedHashtags.join(",")); // 배열 -> CSV 문자열로 변환
         if (selectedImage) {
-          const fileInput = document.querySelector('input[type="file"]');
           formData.append("file", fileInput.files[0]);
         }
-  
+
+
         const response = await fetch("/api/regular-meetings", {
           method: "POST",
           body: formData,
         });
-  
+
         if (response.ok) {
           alert("정규 모임이 작성되었습니다.");
           window.location.href = "/MeetingGroup/regular-Meeting";
@@ -123,7 +123,7 @@ export default function CreateMeetingPage() {
       }
     }
   };
-  
+
   return (
     <Box sx={{ padding: '20px', textAlign: 'center', maxWidth: '800px', margin: '0 auto', paddingTop: '80px' }}>
       {/* 제목 */}

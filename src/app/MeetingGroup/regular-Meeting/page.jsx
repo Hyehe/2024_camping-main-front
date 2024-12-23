@@ -97,8 +97,8 @@ import '../../globals.css';
 //   },
 // ];
 
-const regions = ['전체', '서울', '경기', '인천', '강원도', '부산', '광주', '수원', '용인', '고양', '창원', '대구', '대전', '울산', '충청도', '전라도'];
-const tags = ['#카라반', '#글램핑', '#야영', '#산', '#바다',
+const regions = ['전체', '서울', '경기', '인천', '강원도', '부산', '광주', '수원', '용인', '고양', '창원', '대구', '대전', '울산', '충청도', '전라도', '그 외'];
+const hashtags = ['#카라반', '#글램핑', '#야영', '#산', '#바다',
   '#캠프파이어', '#오토캠핑', '#자연', '#별 관찰', '#텐트',
   '#캠핑 장비', '#팀워크', '#소통', '#즐거운 추억', '#자연 보호',
   '#힐링', '#맛있는 음식', '#트레킹', '#낚시', '#자전거 타기',
@@ -123,28 +123,58 @@ export default function RegularMeetingPage() {
   useEffect(() => {
     const fetchMeetings = async () => {
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL}/regular-meetings`);
-        if (response.ok) {
-          
-          const data = await response.json();
+        // user_id는 로그인 유저의 PK 등이 들어간다고 가정
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL}/regular-meetings?user_idx=1`,  // 임시값 ${user_id}
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            credentials: "include", // 쿠키(세션) 포함이 필요한 경우
+          });
   
-          // 백엔드 데이터 구조에 맞게 상태값 초기화
-          const formattedMeetings = data.map((meeting) => ({
-            id: meeting.id,
-            title: meeting.name,
-            region: meeting.region,
-            location: meeting.subRegion || '',
-            date: meeting.date || '날짜 미정',
-            members: `${meeting.capacity}`, // e.g., '25/50'
-            image: meeting.profileImage,   // || '/images/default-image.jpg',
-            tags: meeting.hashtags.split(', '), // 문자열을 배열로 변환
-            liked: false, // 초기 좋아요 상태
-          }));
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Meetings fetched successfully:", data);
+  
+          if (!Array.isArray(data)) {
+            throw new Error("Unexpected data format: Expected an array");
+          }
+  
+          // 데이터 매핑
+          const formattedMeetings = data
+            .map((meeting) => {
+              // 필수 필드 검증
+              if (
+                !meeting.meeting_idx ||
+                !meeting.name ||
+                !meeting.region ||
+                !meeting.created_at ||
+                !meeting.personnel
+              ) {
+                console.warn("Missing required meeting fields:", meeting);
+                return null; // 필드가 없으면 제외
+              }
+  
+              return {
+                id: meeting.meeting_idx, // DB의 meeting_idx
+                name: meeting.name, // 모임 이름
+                region: meeting.region, // 지역
+                subregion: meeting.subregion || "미정", // 상세 지역
+                created_at: meeting.created_at.split("T")[0], // yyyy-mm-dd
+                personnel: String(meeting.personnel), // 인원
+                profile_image: meeting.profile_image || "/images/15055_63027_3713.jpg",
+                hashtags: meeting.hashtags ? meeting.hashtags.split(",") : [],
+                liked: meeting.favorites_idx || false,
+              };
+            })
+            .filter(Boolean); // null 제거
   
           setMeetings(formattedMeetings);
           setFilteredMeetings(formattedMeetings);
         } else {
-          console.error("Failed to fetch meetings");
+          console.error("Failed to fetch meetings:", response.statusText);
         }
       } catch (error) {
         console.error("Error fetching meetings:", error);
@@ -154,7 +184,8 @@ export default function RegularMeetingPage() {
     fetchMeetings();
   }, []);
   
-
+  
+  
 
   const handleCardClick = (id) => {
     router.push(`/MeetingGroup/regular-Meeting/detail/${id}`);
@@ -189,13 +220,9 @@ export default function RegularMeetingPage() {
     });
   };
 
-
-
-
   // 태그 버튼 검색 필터
-  const handleTagFilter = (tag) => {
-    // setSelectedTag(tag);
-    setFilteredMeetings(meetings.filter((meeting) => meeting.tags.includes(tag)));
+  const handleTagFilter = (hashtags) => {
+    setFilteredMeetings(meetings.filter((meeting) => meeting.hashtags.includes(hashtags)));
   };
 
   // 지역 버튼
@@ -217,10 +244,10 @@ export default function RegularMeetingPage() {
       meetings.filter(
         (meeting) =>
           meeting.region.toLowerCase().includes(lowerSearchTerm) ||
-          meeting.title.toLowerCase().includes(lowerSearchTerm) ||
-          meeting.date.includes(lowerSearchTerm) ||
-          meeting.location.toLowerCase().includes(lowerSearchTerm) ||
-          meeting.tags.some((tag) => tag.toLowerCase().includes(lowerSearchTerm))
+          meeting.name.toLowerCase().includes(lowerSearchTerm) ||
+          meeting.created_at.includes(lowerSearchTerm) ||
+          meeting.subregion.toLowerCase().includes(lowerSearchTerm) ||
+          meeting.hashtags.some((hashtags) => hashtags.toLowerCase().includes(lowerSearchTerm))
       )
     );
 
@@ -236,7 +263,7 @@ export default function RegularMeetingPage() {
   const handleTagPagination = (direction) => {
     setTagPage((prevPage) => {
       // 태그 갯수를 기준으로 총 페이지 수 계산
-      const totalPages = Math.ceil(tags.length / 7); // 7개씩 표시하므로 총 페이지 수는 태그 길이 / 7
+      const totalPages = Math.ceil(hashtags.length / 7); // 7개씩 표시하므로 총 페이지 수는 태그 길이 / 7
 
       if (direction === 'next') {
         // 마지막 페이지에서 오른쪽 화살표 클릭 시 첫 페이지로 돌아가도록 설정
@@ -248,7 +275,7 @@ export default function RegularMeetingPage() {
     });
   };
 
-  const visibleTags = tags.slice(tagPage * 7, (tagPage + 1) * 7);
+  const visibleTags = hashtags.slice(tagPage * 7, (tagPage + 1) * 7);
 
   // 실시간 검색 기능
 
@@ -266,10 +293,10 @@ export default function RegularMeetingPage() {
       meetings.filter(
         (meeting) =>
           meeting.region.toLowerCase().includes(term.toLowerCase()) ||
-          meeting.title.toLowerCase().includes(term.toLowerCase()) ||
-          meeting.date.includes(term) ||
-          meeting.location.toLowerCase().includes(term.toLowerCase()) ||
-          meeting.tags.some((tag) => tag.toLowerCase().includes(term.toLowerCase()))
+          meeting.name.toLowerCase().includes(term.toLowerCase()) ||
+          meeting.created_at.includes(term) ||
+          meeting.subregion.toLowerCase().includes(term.toLowerCase()) ||
+          meeting.hashtags.some((hashtags) => hashtags.toLowerCase().includes(term.toLowerCase()))
       )
     );
 
@@ -451,12 +478,12 @@ export default function RegularMeetingPage() {
         <IconButton onClick={() => handleTagPagination('prev')} disabled={tagPage === 0} sx={{ alignSelf: 'center' }}>
           <ArrowBackIosIcon />
         </IconButton>
-        {visibleTags.map((tag, idx) => (
+        {visibleTags.map((hashtags, idx) => (
           <Chip
             key={idx}
-            label={tag}
+            label={hashtags}
             clickable
-            onClick={() => handleTagFilter(tag)}
+            onClick={() => handleTagFilter(hashtags)}
             sx={{
               fontSize: '14px',
               padding: '10px',
@@ -468,7 +495,7 @@ export default function RegularMeetingPage() {
           />
         ))}
 
-        <IconButton onClick={() => handleTagPagination('next')} disabled={(tagPage + 1) * 7 >= tags.length} sx={{ alignSelf: 'center' }}>
+        <IconButton onClick={() => handleTagPagination('next')} disabled={(tagPage + 1) * 7 >= hashtags.length} sx={{ alignSelf: 'center' }}>
           <ArrowForwardIosIcon sx={{ fontSize: '24px' }} />
         </IconButton>
 
@@ -593,8 +620,8 @@ export default function RegularMeetingPage() {
                   </AvatarGroup>
                 </Box>
                 <Box sx={{ marginTop: '8px', display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  {meeting.tags.map((tag, idx) => (
-                    <Chip key={idx} label={tag} sx={{ backgroundColor: '#b3d468', fontSize: '12px' }} />
+                  {meeting.hashtags.map((hashtags, idx) => (
+                    <Chip key={idx} label={hashtags} sx={{ backgroundColor: '#b3d468', fontSize: '12px' }} />
                   ))}
                 </Box>
               </Box>
