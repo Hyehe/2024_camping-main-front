@@ -35,94 +35,136 @@ export default function CreateMeetingPage() {
   const [selectedSubRegion, setSelectedSubRegion] = useState('');
   const [otherRegion, setOtherRegion] = useState('');
   const [description, setDescription] = useState('');
-  const [subregion, setSubregion] = useState('');
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
+  const [personnel, setPersonnel] = useState('');
+
+  // 실제 업로드할 파일
+  const [selectedFile, setSelectedFile] = useState(null);
+  // 미리보기용 이미지 경로
+  const [previewImage, setPreviewImage] = useState(null);
 
   const [errors, setErrors] = useState({});
+  const [isSubmitDisabled, setIsSubmitDisabled] = useState(true);
 
+  // 해시태그 클릭
   const handleHashtagClick = (hashtag) => {
     if (selectedHashtags.includes(hashtag)) {
-      setSelectedHashtags(selectedHashtags.filter((tag) => tag !== hashtag));
+      setSelectedHashtags(selectedHashtags.filter((t) => t !== hashtag));
     } else if (selectedHashtags.length < 3) {
       setSelectedHashtags([...selectedHashtags, hashtag]);
     }
   };
 
+  // 파일 선택
   const handleImageChange = (event) => {
-    const file = event.target.files[0];
+    const file = event.target.files?.[0];
     if (file) {
-      setSelectedImage(URL.createObjectURL(file)); // 미리보기 URL 생성
+      setSelectedFile(file);
+      setPreviewImage(URL.createObjectURL(file));  // 미리보기
     }
   };
 
-  // 유효성 검사 함수
+  // 유효성 검사
   const validateForm = () => {
     const newErrors = {};
 
-    if (!title.trim()) newErrors.title = '필수 입력입니다.';
-    if (!selectedImage) newErrors.image = '필수 입력입니다.';
-    if (selectedHashtags.length === 0) newErrors.hashtags = '최소 1개의 해시태그를 선택해주세요.';
-    if (!selectedRegion) newErrors.region = '필수 입력입니다.';
-    if (selectedRegion !== '기타' && !selectedSubRegion) newErrors.subRegion = '필수 입력입니다.';
-    if (selectedRegion === '기타' && !otherRegion) newErrors.otherRegion = '필수 입력입니다.';
-    if (!description.trim()) newErrors.description = '필수 입력입니다.';
-    if (!subregion || subregion <= 0) newErrors.subregion = '1 이상의 숫자를 입력해주세요.';
+    // (1) 모임 제목
+    if (!title.trim()) {
+      newErrors.title = '필수 입력입니다.';
+    }
+    // (2) 이미지 선택
+    if (!selectedFile) {
+      newErrors.image = '필수 입력입니다.';
+    }
+    // (3) 해시태그 최소 1개
+    if (selectedHashtags.length === 0) {
+      newErrors.hashtags = '최소 1개의 해시태그를 선택해주세요.';
+    }
+    // (4) 지역
+    if (!selectedRegion) {
+      newErrors.region = '필수 입력입니다.';
+    } else if (selectedRegion !== '기타') {
+      // 일반 지역 선택 시
+      if (!selectedSubRegion.trim()) {
+        newErrors.subRegion = '구/군 등을 입력해주세요.';
+      }
+    } else {
+      // 기타 지역 선택 시
+      if (!otherRegion.trim()) {
+        newErrors.otherRegion = '기타 지역을 입력해주세요.';
+      }
+    }
+    // (5) 모임 내용
+    if (!description.trim()) {
+      newErrors.description = '필수 입력입니다.';
+    }
+    // (6) 정원
+    if (!personnel || Number(personnel) <= 0) {
+      newErrors.personnel = '1 이상의 숫자를 입력해주세요.';
+    }
 
     setErrors(newErrors);
     setIsSubmitDisabled(Object.keys(newErrors).length > 0);
   };
 
-  // 유효성 검사 연결
+  // 값들이 변경될 때마다 유효성 검사
   useEffect(() => {
     validateForm();
-  }, [title, selectedImage, selectedHashtags, selectedRegion, selectedSubRegion, otherRegion, description, subregion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title,selectedFile,selectedHashtags,selectedRegion,selectedSubRegion,otherRegion,description,personnel]);
 
-  // 작성 버튼 클릭 핸들러
+  // 작성 버튼
   const handleSubmit = async () => {
+    // 유효성 검사 다시
     validateForm();
+    if (isSubmitDisabled) return;
 
-    if (!isSubmitDisabled) {
-      const newMeeting = {
-        name: title,
-        hashtags: selectedHashtags.join(", "), // 해시태그를 문자열로 전달
-        description,
-        region: selectedRegion === '기타' ? otherRegion : selectedRegion,
-        subregion: Number(subregion), // 숫자 형식으로 변환
-
-      };
-
-      try {
-        const formData = new FormData();
-        formData.append("name", title);
-        formData.append("description", description);
+    try {
+      // FormData로 구성
+      const formData = new FormData();
+      formData.append("name", title);
+      formData.append("description", description);
+      // 지역 설정
+      if (selectedRegion === '기타') {
+        formData.append("region", otherRegion);
+        // subregion은 안 쓰거나, 별도 로직
+        formData.append("subregion", otherRegion);
+      } else {
         formData.append("region", selectedRegion);
-        formData.append("subregion", selectedSubRegion || otherRegion);
-        formData.append("personnel", Number(subregion));
-        formData.append("hashtags", selectedHashtags.join(",")); // 배열 -> CSV 문자열로 변환
-        if (selectedImage) {
-          formData.append("file", fileInput.files[0]);
-        }
+        formData.append("subregion", selectedSubRegion);
+      }
 
+      formData.append("personnel", personnel);
+      formData.append("hashtags", selectedHashtags.join(",")); // CSV 형태
 
-        const response = await fetch("/api/regular-meetings", {
+      // 파일
+      if (selectedFile) {
+        formData.append("file", selectedFile);
+      }
+
+      // 서버에 전송
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL}/regular-meetings`,
+        {
           method: "POST",
           body: formData,
-        });
-
-        if (response.ok) {
-          alert("정규 모임이 작성되었습니다.");
-          window.location.href = "/MeetingGroup/regular-Meeting";
-        } else {
-          const errorData = await response.json();
-          alert(`오류 발생: ${errorData.message}`);
         }
-      } catch (error) {
-        console.error("Error:", error);
-        alert("정규 모임 생성 중 오류가 발생했습니다.");
+      );
+
+      if (response.ok) {
+        alert("정규 모임이 작성되었습니다.");
+        // 목록 페이지로 이동
+        window.location.href = "/MeetingGroup/regular-Meeting";
+      } else {
+        // 서버 에러메시지 확인
+        const errorData = await response.text();
+        alert(`오류 발생: ${errorData}`);
       }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("정규 모임 생성 중 오류가 발생했습니다.");
     }
   };
+
 
   return (
     <Box sx={{ padding: '20px', textAlign: 'center', maxWidth: '800px', margin: '0 auto', paddingTop: '80px' }}>
@@ -178,11 +220,11 @@ export default function CreateMeetingPage() {
             {errors.image}
           </FormHelperText>
         )}
-        {selectedImage && (
+        {previewImage && (
           <Box sx={{ marginTop: '10px' }}>
             <Typography variant="body2" sx={{ marginBottom: '5px' }}>미리보기:</Typography>
             <Avatar
-              src={selectedImage}
+              src={previewImage}
               alt="Selected Profile"
               sx={{
                 width: '100px', height: '100px', borderRadius: '8px',
@@ -252,9 +294,9 @@ export default function CreateMeetingPage() {
           <MenuItem value="" disabled>
             지역을 선택하세요
           </MenuItem>
-          {regions.map((region, idx) => (
-            <MenuItem key={idx} value={region}>
-              {region}
+          {regions.map((r) => (
+            <MenuItem key={r} value={r}>
+              {r}
             </MenuItem>
           ))}
         </Select>
@@ -356,10 +398,10 @@ export default function CreateMeetingPage() {
         label="정원 (숫자만 입력)"
         variant="outlined"
         type="number"
-        value={capacity}
-        onChange={(e) => setCapacity(e.target.value)}
-        error={!!errors.capacity}
-        helperText={errors.capacity}
+        value={personnel}
+        onChange={(e) => setPersonnel(e.target.value)}
+        error={!!errors.personnel}
+        helperText={errors.personnel}
         sx={{
           marginBottom: '20px',
           '& .MuiOutlinedInput-root.Mui-error': {

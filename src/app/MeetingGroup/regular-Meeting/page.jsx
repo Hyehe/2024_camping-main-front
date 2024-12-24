@@ -17,7 +17,6 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import '../../globals.css';
 
-
 // const meetings = [
 //   {
 //     id: 1,
@@ -166,7 +165,7 @@ export default function RegularMeetingPage() {
                 personnel: String(meeting.personnel), // 인원
                 profile_image: meeting.profile_image || "/images/15055_63027_3713.jpg",
                 hashtags: meeting.hashtags ? meeting.hashtags.split(",") : [],
-                liked: meeting.favorites_idx || false,
+                liked: meeting.favorites_idx,
               };
             })
             .filter(Boolean); // null 제거
@@ -185,8 +184,6 @@ export default function RegularMeetingPage() {
   }, []);
   
   
-  
-
   const handleCardClick = (id) => {
     router.push(`/MeetingGroup/regular-Meeting/detail/${id}`);
   };
@@ -197,29 +194,66 @@ export default function RegularMeetingPage() {
     setFilteredMeetings((prevMeetings) =>
       prevMeetings.map((meeting) => ({
         ...meeting,
-        liked: !!savedLikes[meeting.id],
+        liked: !!savedLikes[meeting.meeting_idx],
       }))
     );
   }, []);
 
   // 좋아요 상태 저장
-  const toggleLike = (id) => {
-    setFilteredMeetings((prevMeetings) => {
-      const updatedMeetings = prevMeetings.map((meeting) =>
-        meeting.id === id ? { ...meeting, liked: !meeting.liked } : meeting
+  // const toggleLike = (id) => {
+  //   setFilteredMeetings((prevMeetings) => {
+  //     const updatedMeetings = prevMeetings.map((meeting) =>
+  //       meeting.id === id ? { ...meeting, liked: !meeting.liked } : meeting
+  //     );
+
+  //     // 로컬 스토리지 업데이트
+  //     const likedState = updatedMeetings.reduce((acc, meeting) => {
+  //       if (meeting.liked) acc[meeting.id] = true;
+  //       return acc;
+  //     }, {});
+  //     localStorage.setItem('likedMeetings', JSON.stringify(likedState));
+
+  //     return updatedMeetings;
+  //   });
+  // };
+
+  // const token = localStorage.getItem("token"); // 저장된 토큰 가져오기
+
+  const toggleLike = async (id) => {
+    const userIdx = 1; // 임시 사용자 아이디엑스
+  
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL}/regular-meetings/${id}/favorite?user_idx=1`, //${userIdx}
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          // credentials: "include", // 세션/쿠키 포함
+        }
       );
+  
+      if (response.ok) {
+        const data = await response.json();
+        setFilteredMeetings((prevMeetings) =>
+          prevMeetings.map((meeting) =>
+            meeting.id === id ? { ...meeting, liked: data.favorite } : meeting
+          )
+        );
+        console.log("Request URL:", `${process.env.NEXT_PUBLIC_LOCAL_API_BASE_URL}/regular-meetings/${id}/favorite?user_idx=${userIdx}`);
 
-      // 로컬 스토리지 업데이트
-      const likedState = updatedMeetings.reduce((acc, meeting) => {
-        if (meeting.liked) acc[meeting.id] = true;
-        return acc;
-      }, {});
-      localStorage.setItem('likedMeetings', JSON.stringify(likedState));
-
-      return updatedMeetings;
-    });
+      } else {
+        console.error("Failed to toggle favorite:", response.statusText);
+        console.error("Response status:", response.status); // 상태 코드 출력
+      }
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+    }
   };
+  
 
+  
   // 태그 버튼 검색 필터
   const handleTagFilter = (hashtags) => {
     setFilteredMeetings(meetings.filter((meeting) => meeting.hashtags.includes(hashtags)));
@@ -329,7 +363,6 @@ export default function RegularMeetingPage() {
   const toggleExpand = () => {
     setIsExpanded((prev) => !prev);
   };
-
 
   return (
     <Box sx={{ padding: '20px', textAlign: 'center', paddingTop: '80px', margin: '0 auto', width: '70%' }}>
@@ -573,7 +606,7 @@ export default function RegularMeetingPage() {
               {/* 모임 이미지 */}
               <Box
                 component="img"
-                src={meeting.image}
+                src={meeting.profile_image}
                 alt={meeting.title}
                 sx={{
                   width: '140px',
@@ -600,17 +633,17 @@ export default function RegularMeetingPage() {
                     textOverflow: 'ellipsis', // 넘친 텍스트에 "..." 표시
                   }}
                 >
-                  {meeting.title}
+                  {meeting.name}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {meeting.region} · {meeting.location}
+                  {meeting.region} · {meeting.subregion}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {meeting.date}
+                  {meeting.created_at}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', marginTop: '8px' }}>
                   <Typography variant="body2" color="text.secondary" sx={{ marginRight: '8px' }}>
-                    인원: {meeting.members}
+                    인원: {meeting.personnel}
                   </Typography>
                   <AvatarGroup max={4}>
                     <Avatar alt="User 1" src="/images/picture4.png" />
